@@ -6,8 +6,8 @@
 template <typename T, bool = std::is_empty_v<T>>
 class compressed_pair_base_ {
 public:
-    typedef T        value_type;
-    typedef T&       reference;
+    typedef T value_type;
+    typedef T& reference;
     typedef T const& const_reference;
 
 private:
@@ -40,8 +40,8 @@ template <typename T>
 class compressed_pair_base_<T, true>
         : private T {
 public:
-    typedef T        value_type;
-    typedef T&       reference;
+    typedef T value_type;
+    typedef T& reference;
     typedef T const& const_reference;
 
 public:
@@ -70,7 +70,7 @@ public:
 template <typename T1, typename T2>
 class compressed_pair
         : private compressed_pair_base_<T1>
-                , private compressed_pair_base_<T2> {
+        , private compressed_pair_base_<T2> {
 private:
     typedef compressed_pair_base_<T1> base1_;
     typedef compressed_pair_base_<T2> base2_;
