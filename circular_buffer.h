@@ -195,10 +195,10 @@ public:
     }
 
     /*
-     * Construct a buffer with specified capacity filled with data in range
+     * Constructs a buffer with specified capacity filled with data in range
      * @param first, last are expected to be input iterators
      *
-     * This constructor takes only first initial_capacity elements from the range
+     * This constructor takes only first 'initial_capacity elements from the range
      *
      * After this, 'capacity = initial_capacity
      *             'size = min('capacity, std::distance(first, last))
@@ -221,7 +221,7 @@ public:
     }
 
     /*
-     * Inserts given range to the buffer while there is empty space for new elements
+     * Inserts given range to the end of the buffer while there is empty space for new elements
      * @param first, last -- range to be inserted
      *
      * This method does not overwrite existing data
@@ -239,7 +239,7 @@ public:
      * Adds one element to the end of the buffer
      * @param value -- the element to be copied
      *
-     * This method can overwtite data
+     * This method can overwrite data
      *
      * @return if existing element was overwritten or not
      * @throw any exception caused by copy-construction or destruction of T
@@ -254,6 +254,8 @@ public:
      * Adds one element to the end of the buffer
      * @param value -- the element to be moved
      *
+     * This method can overwrite data
+     *
      * @return if existing element was overwritten or not
      * @throw any exception caused by move-construction or destruction of T
      * @guarantee basic if size() == capacity()
@@ -266,6 +268,8 @@ public:
     /*
      * Adds one element to the end of the buffer
      * @param args... -- arguments to construct T of
+     *
+     * This method can overwrite data
      *
      * @return if existing element was overwritten or not
      * @throw any exception caused by construction or desctruction of T
