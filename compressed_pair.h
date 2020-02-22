@@ -18,7 +18,7 @@ public:
         std::enable_if_t<std::is_default_constructible_v<T>>>
     compressed_pair_base_()
     noexcept(std::is_nothrow_default_constructible_v<T>)
-    {}
+        : value_() {}
 
     template <typename U, typename = typename
         std::enable_if_t<std::is_constructible_v<T, U&&>>>
@@ -49,7 +49,7 @@ public:
         std::enable_if_t<std::is_default_constructible_v<T>>>
     compressed_pair_base_()
     noexcept(std::is_nothrow_default_constructible_v<T>)
-    {}
+        : T() {}
 
     template <typename U, typename = typename
         std::enable_if_t<std::is_constructible_v<T, U&&>>>
