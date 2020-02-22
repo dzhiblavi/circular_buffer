@@ -94,7 +94,7 @@ private:
         if (wi < capacity) {
             std::destroy(storage + oi, storage + wi);
         } else {
-            wi %= capacity;
+            wi -= capacity;
             std::destroy(storage + oi, storage + capacity);
             std::destroy(storage, storage + wi);
         }
@@ -154,6 +154,50 @@ private:
 
         ++write_index_;
         return overwrite;
+    }
+
+    static void data_copy_impl_(pointer new_storage, pointer old_storage
+                              , size_t capacity, size_t write_index, size_t oldest_index) {
+        if (write_index <= capacity) {
+            std::uninitialized_copy(old_storage + oldest_index, old_storage + write_index
+                                  , new_storage + oldest_index);
+        } else {
+            write_index -= capacity;
+            std::uninitialized_copy(old_storage, old_storage + write_index, new_storage);
+
+            try {
+                std::uninitialized_copy(old_storage + oldest_index, old_storage + capacity
+                                      , new_storage + oldest_index);
+            } catch (...) {
+                std::destroy(new_storage, new_storage + write_index);
+                throw;
+            }
+        }
+    }
+
+    /*
+     * Equal copy of memory
+     * No additional memory allocation will be done
+     *
+     * This method destorys and deallocates previous storage and replaces it
+     *  with new_storage, filles with data from old_storage regarding I
+     *
+     * @throw any exception caused by copy-construction of T
+     * @guarantee strong
+     * */
+    void exact_copy_impl_(pointer_hold_ new_storage, pointer old_storage,
+                              size_t capacity, size_t write_index, size_t oldest_index) {
+        // fill new storage with new data
+        data_copy_impl_(new_storage.get(), old_storage, capacity, write_index, oldest_index);
+
+        // now replace the data
+        destroy_(storage_, capacity_(), oldest_index_, write_index_);
+        alloc_traits::deallocate(alloc_(), storage_, capacity_());
+
+        write_index_ = write_index;
+        oldest_index_ = oldest_index;
+        capacity_() = capacity;
+        storage_ = new_storage.release();
     }
 
 public:
@@ -218,6 +262,81 @@ public:
             return;
 
         destroy_(storage_, capacity(), oldest_index_, write_index_);
+        alloc_traits::deallocate(alloc_(), storage_, capacity());
+    }
+
+    /*
+     * Creates an exact copy of 'other buffer
+     *
+     * After this, 'size() = 'other.size()
+     *             'capacity() = 'other.capacity()
+     *             and all elements in range [0, size() - 1) are equal
+     *             in both buffers respectively
+     *
+     * @param buffer to be copied
+     * @throw std::bad_alloc
+     * @throw any exception caused by copy-construction of T
+     * */
+    basic_circular_buffer(basic_circular_buffer const& other) {
+        exact_copy_impl_(allocate_(other.capacity()), other.storage_
+                       , other.capacity(), other.write_index_, other.oldest_index_);
+    }
+
+    /*
+     * Move-constructor
+     *
+     * Calling this constructor results 'other to be defaulted
+     *
+     * @param buffer to be moved from
+     * */
+    basic_circular_buffer(basic_circular_buffer&& other) noexcept {
+        swap(other);
+    }
+
+    /*
+     * Copy-assignment operator
+     *
+     * After this, 'size() = 'other.size()
+     *             'capacity() = 'other.capacity()
+     *             and all elements in range [0, size() - 1) are equal
+     *             in both buffers respectively
+     *
+     * @param buffer to be copied
+     * @throw std::bad_alloc
+     * @throw any exception caused by copy-construction of T
+     * @guarantee strong, if capacity() < other.size()
+     *            basic, otherwise
+     * */
+    basic_circular_buffer& operator=(basic_circular_buffer const& other) {
+        if (this == &other)
+            return *this;
+
+        exact_copy_impl_(allocate_(other.capacity()), other.storage_
+                       , other.capacity(), other.write_index_, other.oldest_index_);
+        return *this;
+    }
+
+    /*
+     * Move-assignment operator
+     *
+     * Calling this operator results 'other to be defaulted
+     *
+     * @param buffer to be moved from
+     * @return reference to current buffer
+     * */
+    basic_circular_buffer& operator=(basic_circular_buffer&& other) noexcept {
+        if (this == &other)
+            return *this;
+
+        swap(other);
+        return *this;
+    }
+
+    void swap(basic_circular_buffer& other) noexcept {
+        std::swap(cpair_, other.cpair_);
+        std::swap(storage_, other.storage_);
+        std::swap(write_index_, other.write_index_);
+        std::swap(oldest_index_, other.oldest_index_);
     }
 
     /*
@@ -344,7 +463,5 @@ public:
         return size() == 0;
     }
 };
-
-typedef basic_circular_buffer<char> circular_buffer;
 
 #endif // CIRCULAR_BUFFER_H

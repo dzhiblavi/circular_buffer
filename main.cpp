@@ -32,15 +32,11 @@ void trace(std::ostream& os, U const& u, Us&&... us) {
 }
 
 template <typename U, typename V>
-bool same(U const& u, V const& v) {
-    if (u.size() != v.size())
-        return false;
+void EXPECT_SAME(U const& u, V const& v) {
+    EXPECT_EQ(u.size(), v.size());
 
     for (size_t i = 0; i < u.size(); ++i)
-        if (u[i] != v[i])
-            return false;
-
-    return true;
+        EXPECT_EQ(u[i], v[i]);
 }
 
 TEST(correctness, default_constructor) {
@@ -82,7 +78,7 @@ TEST(correctness, forward_iterator_constructor) {
         EXPECT_FALSE(buffer.empty());
         EXPECT_EQ(v.back(), buffer.back());
         EXPECT_EQ(v.front(), buffer.front());
-        EXPECT_TRUE(same(v, buffer));
+        EXPECT_SAME(v, buffer);
     });
 }
 
@@ -109,7 +105,7 @@ TEST(correctness, push_back) {
            EXPECT_FALSE(buffer.empty());
            EXPECT_EQ(25, buffer.capacity());
            EXPECT_EQ(v[i], buffer.back());
-           EXPECT_TRUE(same(subvec, buffer));
+           EXPECT_SAME(subvec, buffer);
        }
     });
 }
@@ -125,5 +121,72 @@ TEST(correctness, input_iterator_constructor) {
         EXPECT_FALSE(buffer.empty());
         EXPECT_EQ(v[buffer.size() - 1], buffer.back());
         EXPECT_EQ(v.front(), buffer.front());
+    });
+}
+
+TEST(correctness, copy_construction) {
+    std::vector<counted> v = vec(100);
+    counted_buffer base_buffer(v.begin(), v.end());
+
+    faulty_run([&base_buffer] {
+        counted_buffer buffer(base_buffer);
+
+        EXPECT_SAME(base_buffer, buffer);
+    });
+}
+
+TEST(correctness, move_construction) {
+    std::vector<counted> v = vec(100);
+    counted_buffer base_buffer(v.begin(), v.end());
+
+    EXPECT_NO_THROW(counted_buffer(std::move(base_buffer)));
+    EXPECT_SAME(std::vector<counted>(), base_buffer);
+}
+
+TEST(correctness, move_assignment) {
+    std::vector<counted> v = vec(100);
+    std::vector<counted> v1(v.begin(), v.begin() + 20);
+    std::vector<counted> v2(v.begin(), v.begin() + 60);
+    std::vector<counted> v3(v.begin(), v.begin() + 100);
+    counted_buffer b1, b2, b3;
+
+    EXPECT_NO_THROW(b1 = counted_buffer(v.begin(), v.begin() + 20));
+    EXPECT_NO_THROW(b2 = counted_buffer(v.begin(), v.begin() + 60));
+    EXPECT_NO_THROW(b3 = counted_buffer(v.begin(), v.begin() + 100));
+
+    EXPECT_SAME(b1, v1);
+    EXPECT_SAME(b2, v2);
+    EXPECT_SAME(b3, v3);
+}
+
+TEST(correctness, copy_assignment) {
+    std::vector<counted> v = vec(20);
+    std::vector<counted> v1(v.begin(), v.begin() + 2);
+    std::vector<counted> v2(v.begin(), v.begin() + 6);
+    std::vector<counted> v3(v.begin(), v.begin() + 15);
+
+    counted_buffer base_buffer(v.begin(), v.begin() + 10);
+
+    faulty_run([&] {
+        counted_buffer b1, b2, b3;
+        {
+            fault_injection_disable fd;
+
+            b1 = counted_buffer(v.begin(), v.begin() + 2);
+            b2 = counted_buffer(v.begin(), v.begin() + 6);
+            b3 = counted_buffer(v.begin(), v.begin() + 15);
+
+            EXPECT_SAME(b1, v1);
+            EXPECT_SAME(b2, v2);
+            EXPECT_SAME(b3, v3);
+        }
+
+        b1 = base_buffer;
+        b2 = base_buffer;
+        b3 = base_buffer;
+
+        EXPECT_SAME(base_buffer, b1);
+        EXPECT_SAME(base_buffer, b2);
+        EXPECT_SAME(base_buffer, b3);
     });
 }
