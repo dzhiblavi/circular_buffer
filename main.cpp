@@ -190,3 +190,47 @@ TEST(correctness, copy_assignment) {
         EXPECT_SAME(base_buffer, b3);
     });
 }
+
+TEST(correctness, iterators) {
+    std::vector<counted> v = vec(100);
+    counted_buffer buffer(v.begin(), v.end());
+
+    faulty_run([&] {
+        EXPECT_NO_THROW([&] {
+            EXPECT_TRUE(std::equal(v.begin(), v.end(), buffer.begin(), buffer.end()));
+        }());
+    });
+}
+
+TEST(correctness, const_iterators) {
+    std::vector<counted> v = vec(100);
+    counted_buffer buffer(v.begin(), v.end());
+
+    faulty_run([&] {
+        EXPECT_NO_THROW([&] {
+            EXPECT_TRUE(std::equal(v.begin(), v.end(), buffer.cbegin(), buffer.cend()));
+        }());
+    });
+}
+
+TEST(correctness, reverse_iterators) {
+    std::vector<counted> v = vec(100);
+    counted_buffer buffer(v.begin(), v.end());
+
+    faulty_run([&] {
+        EXPECT_NO_THROW([&] {
+            EXPECT_TRUE(std::equal(v.rbegin(), v.rend(), buffer.rbegin(), buffer.rend()));
+        }());
+    });
+}
+
+TEST(correctness, const_reverse_iterators) {
+    std::vector<counted> v = vec(100);
+    counted_buffer buffer(v.begin(), v.end());
+
+    faulty_run([&] {
+        EXPECT_NO_THROW([&] {
+            EXPECT_TRUE(std::equal(v.rbegin(), v.rend(), buffer.rcbegin(), buffer.rcend()));
+        }());
+    });
+}

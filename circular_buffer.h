@@ -10,6 +10,126 @@
 #include "compressed_pair.h"
 #include "utility.h"
 
+template <typename T, typename Traits, typename Pointer, typename Reference>
+struct basic_circular_buffer_iterator_impl {
+    typedef T value_type;
+    typedef Reference reference;
+    typedef Pointer pointer;
+
+    typedef typename Traits::difference_type difference_type;
+    typedef std::random_access_iterator_tag iterator_category;
+
+    template<typename, typename> friend class basic_circular_buffer;
+    template<typename, typename> friend class basic_circular_buffer_const_iterator;
+
+private:
+    pointer base_ = nullptr;
+    size_t index_ = 0;
+    size_t capacity_ = 0;
+
+private:
+    basic_circular_buffer_iterator_impl(pointer base, size_t index, size_t capacity)
+            : base_(base)
+            , index_(index)
+            , capacity_(capacity) {}
+
+    size_t checked_index_(size_t index) const noexcept {
+        return index < capacity_ ? index_ : index_ - capacity_;
+    }
+
+public:
+    basic_circular_buffer_iterator_impl() = default;
+    basic_circular_buffer_iterator_impl(basic_circular_buffer_iterator_impl const&) = default;
+    basic_circular_buffer_iterator_impl& operator=(basic_circular_buffer_iterator_impl const&) = default;
+
+    basic_circular_buffer_iterator_impl& operator++() noexcept {
+        ++index_;
+        return *this;
+    }
+
+    basic_circular_buffer_iterator_impl& operator--() noexcept {
+        if (index_ == 0)
+            index_ = capacity_;
+        --index_;
+
+        return *this;
+    }
+
+    const basic_circular_buffer_iterator_impl operator++(int) noexcept {
+        basic_circular_buffer_iterator_impl ret(*this);
+        ++(*this);
+        return ret;
+    }
+
+    const basic_circular_buffer_iterator_impl operator--(int) noexcept {
+        basic_circular_buffer_iterator_impl ret(*this);
+        --(*this);
+        return ret;
+    }
+
+    bool operator==(basic_circular_buffer_iterator_impl const& other) {
+        return index_ == other.index_;
+    }
+
+    bool operator!=(basic_circular_buffer_iterator_impl const& other) {
+        return !(*this == other);
+    }
+
+    reference operator*() const {
+        return base_[checked_index_(index_)];
+    }
+
+    pointer operator->() const {
+        return base_ + checked_index_(index_);
+    }
+
+    reference operator[](size_t index) {
+        return base_[checked_index_(index_ + index)];
+    }
+
+    bool operator<(basic_circular_buffer_iterator_impl const& other) {
+        return index_ < other.index_;
+    }
+
+    bool operator>(basic_circular_buffer_iterator_impl const& other) {
+        return other < *this;
+    }
+
+    bool operator<=(basic_circular_buffer_iterator_impl const& other) {
+        return !(this > other);
+    }
+
+    bool operator>=(basic_circular_buffer_iterator_impl const& other) {
+        return !(*this < other);
+    }
+
+    basic_circular_buffer_iterator_impl& operator+=(size_t shift) noexcept {
+        index_ += shift;
+        return *this;
+    }
+
+    basic_circular_buffer_iterator_impl& operator-=(size_t shift) noexcept {
+        if (index_ < base_ + shift)
+            index_ = base_ + capacity_ + 1;
+        index_ -= shift;
+
+        return *this;
+    }
+
+    friend difference_type operator-(basic_circular_buffer_iterator_impl const& a
+                                   , basic_circular_buffer_iterator_impl const& b) {
+        return a.index_ - b.index_;
+    }
+};
+
+template <typename T, typename Traits>
+using basic_circular_buffer_iterator
+        = basic_circular_buffer_iterator_impl<T, Traits, typename Traits::pointer, T&>;
+
+template <typename T, typename Traits>
+using basic_circular_buffer_const_iterator
+        = basic_circular_buffer_iterator_impl<T, Traits, typename Traits::const_pointer, T const&>;
+
 template <typename T, typename Alloc = std::allocator<T>>
 class basic_circular_buffer {
 public:
@@ -23,6 +143,11 @@ public:
     typedef typename alloc_traits::size_type size_type;
     typedef typename alloc_traits::pointer pointer;
     typedef typename alloc_traits::const_pointer const_pointer;
+
+    typedef basic_circular_buffer_iterator<T, alloc_traits> iterator;
+    typedef basic_circular_buffer_const_iterator<T, alloc_traits> const_iterator;
+    typedef std::reverse_iterator<iterator> reverse_iterator;
+    typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
 private:
     struct unp_destructor_ {
@@ -58,9 +183,11 @@ private:
      * I = if write_index_ < capacity() then
      *   data = [oldest_index_, write_index_)
      *     else
-     *   data = [oldest_index_, capacity_) U [0, write_index mod capacity())
+     *   data = [oldest_index_, capacity_) U [0, write_index_ mod capacity())
      *   &&
-     *      0 <= oldest_index < capacity()
+     *      0 <= oldest_index_ < capacity()
+     *   &&
+     *      oldest_index_ <= write_index_
      * */
     size_t write_index_ = 0;
     size_t oldest_index_ = 0;
@@ -90,6 +217,9 @@ private:
         return index >= capacity() ? index - capacity() : index;
     }
 
+    /*
+     * Destructs object in 'storage regarding I
+     * */
     static void destroy_(pointer storage, size_t capacity, size_t oi, size_t wi) noexcept {
         if (wi < capacity) {
             std::destroy(storage + oi, storage + wi);
@@ -116,6 +246,9 @@ private:
         write_index_ = capacity_();
     }
 
+    /*
+     * @guarantee strong
+     * */
     template <typename It>
     It insert_impl_(It first, It last) {
         size_t constructed = 0;
@@ -156,6 +289,13 @@ private:
         return overwrite;
     }
 
+    /*
+     * Copies all data from 'old_storage to 'new_storage regarding I
+     *
+     * 'new_storage's capacity must be equal to 'capacity
+     *
+     * @gurarantee strong
+     * */
     static void data_copy_impl_(pointer new_storage, pointer old_storage
                               , size_t capacity, size_t write_index, size_t oldest_index) {
         if (write_index <= capacity) {
@@ -186,7 +326,7 @@ private:
      * @guarantee strong
      * */
     void exact_copy_impl_(pointer_hold_ new_storage, pointer old_storage,
-                              size_t capacity, size_t write_index, size_t oldest_index) {
+                          size_t capacity, size_t write_index, size_t oldest_index) {
         // fill new storage with new data
         data_copy_impl_(new_storage.get(), old_storage, capacity, write_index, oldest_index);
 
@@ -401,6 +541,23 @@ public:
     }
 
     /*
+     * Removes the first element in the buffer
+     *
+     * After this, 'size() = 'size() - 1
+     *
+     * If the buffer is empty, behaviour is undefined
+     * */
+    void pop() noexcept {
+        alloc_traits::destroy(alloc_(), storage_ + oldest_index_);
+        ++oldest_index_;
+
+        if (oldest_index_ == capacity()) {
+            oldest_index_ = 0;
+            write_index_ -= capacity();
+        }
+    }
+
+    /*
      * Access the first element of the buffer
      *
      * If the buffer is empty, behaviour is undefined
@@ -444,6 +601,61 @@ public:
 
     const_reference operator[](size_t index) const noexcept {
         return storage_[checked_index_(oldest_index_ + index)];
+    }
+
+    /*
+     * Member functions used to get iterators
+     *
+     * Any modifying operation invalidates all iterators
+     *
+     * All iterators implement random access interface
+     * */
+    iterator begin() noexcept {
+        return iterator(storage_, oldest_index_, capacity());
+    }
+
+    iterator end() noexcept {
+        return iterator(storage_, write_index_, capacity());
+    }
+
+    const_iterator begin() const noexcept {
+        return const_iterator(storage_, oldest_index_, capacity());
+    }
+
+    const_iterator end() const noexcept {
+        return const_iterator(storage_, write_index_, capacity());
+    }
+
+    const_iterator cbegin() const noexcept {
+        return begin();
+    }
+
+    const_iterator cend() const noexcept {
+        return end();
+    }
+
+    reverse_iterator rbegin() noexcept {
+        return reverse_iterator(end());
+    }
+
+    reverse_iterator rend() noexcept {
+        return reverse_iterator(begin());
+    }
+
+    const_reverse_iterator rbegin() const noexcept {
+        return const_reverse_iterator(cend());
+    }
+
+    const_reverse_iterator rend() const noexcept {
+        return const_reverse_iterator(cbegin());
+    }
+
+    const_reverse_iterator rcbegin() const noexcept {
+        return rbegin();
+    }
+
+    const_reverse_iterator rcend() const noexcept {
+        return rend();
     }
 
     allocator_type get_allocator() const noexcept {
