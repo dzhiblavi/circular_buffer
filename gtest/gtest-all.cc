@@ -2295,7 +2295,7 @@ TimeInMillis GetTimeInMillis() {
 #  pragma warning(push)          // Saves the current warning state.
 #  pragma warning(disable:4996)  // Temporarily disables warning 4996.
   _ftime64(&now);
-#  pragma warning(pop_front)           // Restores the warning state.
+#  pragma warning(pop)           // Restores the warning state.
 # else
 
   _ftime64(&now);
@@ -4710,7 +4710,7 @@ std::string FormatEpochTimeInMillisAsIso8601(TimeInMillis ms) {
 # pragma warning(disable:4996)  // Temporarily disables warning 4996
                                 // (function or variable may be unsafe).
   const struct tm* const time_struct = localtime(&seconds);  // NOLINT
-# pragma warning(pop_front)           // Restores the warning state again.
+# pragma warning(pop)           // Restores the warning state again.
 #else
   const struct tm* const time_struct = localtime(&seconds);  // NOLINT
 #endif
@@ -5312,7 +5312,7 @@ void UnitTest::AddTestPartResult(
 #if GTEST_HAS_EXCEPTIONS
       throw internal::GoogleTestFailureException(result);
 #else
-      // We cannot call abort() as it generates a pop_front-up in debug mode
+      // We cannot call abort() as it generates a pop-up in debug mode
       // that cannot be suppressed in VC 7.1 or below.
       exit(1);
 #endif
@@ -5402,7 +5402,7 @@ int UnitTest::Run() {
     if (!GTEST_FLAG(break_on_failure))
       _set_abort_behavior(
           0x0,                                    // Clear the following flags:
-          _WRITE_ABORT_MSG | _CALL_REPORTFAULT);  // pop_front-up window, core dump.
+          _WRITE_ABORT_MSG | _CALL_REPORTFAULT);  // pop-up window, core dump.
 # endif
   }
 #endif  // GTEST_HAS_SEH
@@ -5483,7 +5483,7 @@ UnitTestImpl::UnitTestImpl(UnitTest* parent)
                                          // (using this in initializer).
       default_global_test_part_result_reporter_(this),
       default_per_thread_test_part_result_reporter_(this),
-# pragma warning(pop_front)                     // Restores the warning state again.
+# pragma warning(pop)                     // Restores the warning state again.
 #else
       default_global_test_part_result_reporter_(this),
       default_per_thread_test_part_result_reporter_(this),
@@ -6352,7 +6352,7 @@ static const char kColorEncodedHelpMessage[] =
 "      Turn assertion failures into C++ exceptions.\n"
 "  @G--" GTEST_FLAG_PREFIX_ "catch_exceptions=0@D\n"
 "      Do not report exceptions as test failures. Instead, allow them\n"
-"      to crash the program or throw a pop_front-up (on Windows).\n"
+"      to crash the program or throw a pop-up (on Windows).\n"
 "\n"
 "Except for @G--" GTEST_FLAG_PREFIX_ "list_tests@D, you can alternatively set "
     "the corresponding\n"
@@ -8835,7 +8835,7 @@ std::string CapturedStream::ReadEntireFile(FILE* file) {
 }
 
 # ifdef _MSC_VER
-#  pragma warning(pop_front)
+#  pragma warning(pop)
 # endif  // _MSC_VER
 
 static CapturedStream* g_captured_stderr = NULL;
