@@ -73,7 +73,6 @@ void test(size_t c_size, F&& f) {
     counted_buffer buffer;
 
     size_t capacity_step = std::max(1ul, c_size / 10);
-
     auto it = vbase.end();
 
     for (size_t capacity = capacity_step; capacity <= c_size; capacity += capacity_step) {

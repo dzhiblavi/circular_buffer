@@ -298,7 +298,7 @@ private:
      * @return write_index_ for new_storage. oldest_index_ is equal to 0
      * @gurarantee strong
      * */
-    static size_t data_copy_impl_(pointer new_storage, size_t new_capacity, basic_circular_buffer const& b) {
+    static size_t safe_data_copy_impl_(pointer new_storage, size_t new_capacity, basic_circular_buffer const& b) {
         pointer base = b.storage_ + b.oldest_index_;
         size_t size = std::min(new_capacity, b.size());
 
@@ -306,9 +306,7 @@ private:
             std::uninitialized_copy(base, base + size, new_storage);
         } else {
             pointer old_end = b.storage_ + b.capacity();
-
             std::uninitialized_copy(base, old_end, new_storage);
-
             size_t copied = old_end - base;
 
             try {
@@ -320,6 +318,48 @@ private:
         }
 
         return size;
+    }
+
+    static size_t noexcept_data_move_impl_(pointer new_storage, size_t new_capacity, basic_circular_buffer const& b) {
+        pointer base = b.storage_ + b.oldest_index_;
+        size_t size = std::min(new_capacity, b.size());
+
+        if (b.oldest_index_ + size <= b.capacity()) {
+            std::move(base, base + size, new_storage);
+        } else {
+            pointer old_end = b.storage_ + b.capacity();
+            std::move(base, old_end, new_storage);
+            size_t copied = old_end - base;
+            std::move(b.storage_, b.storage_ + (size - copied), new_storage + copied);
+        }
+
+        return size;
+    }
+
+    template <typename F
+            , typename = std::enable_if_t<std::is_invocable_v<F, pointer, size_t, basic_circular_buffer const&>>>
+    void resize_impl_(size_t capacity, F&& copy_method) {
+        pointer_hold_ new_storage = allocate_(capacity);
+
+        size_t wi = write_index_;
+        size_t oi = oldest_index_;
+
+        write_index_ = copy_method(new_storage.get(), capacity, *this);
+
+        oldest_index_ = 0;
+
+        destroy_(storage_, capacity_(), oi, wi);
+        alloc_traits::deallocate(alloc_(), storage_, capacity_());
+
+        storage_ = new_storage.release();
+    }
+
+    void resize_impl_(size_t capacity, std::true_type) {
+        resize_impl_(capacity, noexcept_data_move_impl_);
+    }
+
+    void resize_impl_(size_t capacity, std::false_type) {
+        resize_impl_(capacity, safe_data_copy_impl_);
     }
 
 public:
@@ -402,7 +442,7 @@ public:
     basic_circular_buffer(basic_circular_buffer const& other) {
         pointer_hold_ new_storage = allocate_(other.capacity());
 
-        write_index_ = data_copy_impl_(new_storage.get(), other.capacity(), other);
+        write_index_ = safe_data_copy_impl_(new_storage.get(), other.capacity(), other);
 
         oldest_index_ = 0;
         capacity_() = other.capacity();
@@ -448,7 +488,7 @@ public:
 
             write_index_ = 0;
             oldest_index_ = 0;
-            write_index_ = data_copy_impl_(storage_, capacity(), other);
+            write_index_ = safe_data_copy_impl_(storage_, capacity(), other);
         }
 
         return *this;
@@ -577,22 +617,11 @@ public:
      * After this, 'capacity() = capacity
      *
      * @throw std::bad_alloc
-     * @throw any exception caused by copy- or move-construction of T
+     * @throw any exception caused by copy-construction of T
      * @guarantee strong
      * */
     void resize(size_t capacity) {
-        pointer_hold_ new_storage = allocate_(capacity);
-
-        size_t wi = write_index_;
-        size_t oi = oldest_index_;
-
-        write_index_ = data_copy_impl_(new_storage.get(), capacity, *this);
-        oldest_index_ = 0;
-
-        destroy_(storage_, capacity_(), oi, wi);
-        alloc_traits::deallocate(alloc_(), storage_, capacity_());
-
-        storage_ = new_storage.release();
+        resize_impl_(capacity, std::is_nothrow_move_constructible<T>());
     }
 
     /*
