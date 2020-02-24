@@ -1,3 +1,7 @@
+#include <list>
+#include <vector>
+#include <algorithm>
+
 #include "gtest/gtest.h"
 
 #include "circular_buffer.h"
@@ -6,8 +10,9 @@
 
 typedef basic_circular_buffer<counted> counted_buffer;
 
-std::vector<counted> vec(size_t size) {
-    std::vector<counted> ret;
+template <typename T>
+T gen(size_t size) {
+    T ret;
 
     for (size_t i = 0; i < size; ++i)
         ret.emplace_back(i);
@@ -15,7 +20,14 @@ std::vector<counted> vec(size_t size) {
     return ret;
 }
 
+std::vector<counted> genvec(size_t size) {
+    return gen<std::vector<counted>>(size);
+}
+
 void trace(std::ostream&) {
+}
+
+void itrace(std::ostream&) {
 }
 
 template <typename U, typename... Us>
@@ -31,12 +43,53 @@ void trace(std::ostream& os, U const& u, Us&&... us) {
     trace(os, us...);
 }
 
+template <typename U, typename... Us>
+void itrace(std::ostream& os, U const& u, Us&&... us) {
+    os << "{";
+    size_t i = 0;
+    for (auto const& v : u) {
+        os << v;
+        if (i < u.size() - 1)
+            os << ", ";
+        ++i;
+    }
+    os << "}" << std::endl;
+
+    itrace(os, us...);
+}
+
 template <typename U, typename V>
 void EXPECT_SAME(U const& u, V const& v) {
-    EXPECT_EQ(u.size(), v.size());
+#if 0
+    itrace(std::cerr, u, v);
+#endif
 
-    for (size_t i = 0; i < u.size(); ++i)
-        EXPECT_EQ(u[i], v[i]);
+    EXPECT_TRUE(std::equal(u.begin(), u.end(), v.begin(), v.end()));
+}
+
+template <typename C, typename F>
+void test(size_t c_size, F&& f) {
+    C vbase = gen<C>(c_size), v;
+    counted_buffer buffer;
+
+    size_t capacity_step = std::max(1ul, c_size / 10);
+
+    auto it = vbase.end();
+
+    for (size_t capacity = capacity_step; capacity <= c_size; capacity += capacity_step) {
+        std::advance(it, -capacity_step);
+
+        faulty_run([&] {
+            {
+                fault_injection_disable fd;
+
+                v = C(it, vbase.end());
+                buffer = counted_buffer(capacity, v.begin(), v.end());
+            }
+
+            f(v, buffer);
+        });
+    }
 }
 
 TEST(correctness, default_constructor) {
@@ -68,7 +121,7 @@ TEST(correctness, capacity_constructor) {
 }
 
 TEST(correctness, forward_iterator_constructor) {
-    std::vector<counted> v = vec(100);
+    auto v = genvec(100);
 
     faulty_run([&v] {
         counted_buffer buffer(v.begin(), v.end());
@@ -83,7 +136,8 @@ TEST(correctness, forward_iterator_constructor) {
 }
 
 TEST(correctness, push_back) {
-    std::vector<counted> v = vec(100), subvec;
+    auto v = genvec(100);
+    std::vector<counted> subvec;
 
     faulty_run([&] {
        counted_buffer buffer(25);
@@ -111,8 +165,7 @@ TEST(correctness, push_back) {
 }
 
 TEST(correctness, input_iterator_constructor) {
-    std::vector<counted> v = vec(100);
-
+    auto v = genvec(100);
     faulty_run([&v] {
         counted_buffer buffer(25, v.begin(), v.end());
 
@@ -125,7 +178,7 @@ TEST(correctness, input_iterator_constructor) {
 }
 
 TEST(correctness, copy_construction) {
-    std::vector<counted> v = vec(100);
+    auto v = genvec(100);
     counted_buffer base_buffer(v.begin(), v.end());
 
     faulty_run([&base_buffer] {
@@ -136,7 +189,7 @@ TEST(correctness, copy_construction) {
 }
 
 TEST(correctness, move_construction) {
-    std::vector<counted> v = vec(100);
+    auto v = genvec(100);
     counted_buffer base_buffer(v.begin(), v.end());
 
     EXPECT_NO_THROW(counted_buffer(std::move(base_buffer)));
@@ -144,7 +197,7 @@ TEST(correctness, move_construction) {
 }
 
 TEST(correctness, move_assignment) {
-    std::vector<counted> v = vec(100);
+    auto v = genvec(100);
     std::vector<counted> v1(v.begin(), v.begin() + 20);
     std::vector<counted> v2(v.begin(), v.begin() + 60);
     std::vector<counted> v3(v.begin(), v.begin() + 100);
@@ -160,21 +213,21 @@ TEST(correctness, move_assignment) {
 }
 
 TEST(correctness, copy_assignment) {
-    std::vector<counted> v = vec(20);
-    std::vector<counted> v1(v.begin(), v.begin() + 2);
-    std::vector<counted> v2(v.begin(), v.begin() + 6);
-    std::vector<counted> v3(v.begin(), v.begin() + 15);
+    std::vector<counted> v = gen<std::vector<counted>>(100);
+    std::vector<counted> v1(v.begin(), v.begin() + 20);
+    std::vector<counted> v2(v.begin(), v.begin() + 50);
+    std::vector<counted> v3(v.begin(), v.begin() + 100);
 
-    counted_buffer base_buffer(v.begin(), v.begin() + 10);
+    counted_buffer base_buffer(v.begin(), v.begin() + 50);
 
     faulty_run([&] {
         counted_buffer b1, b2, b3;
         {
             fault_injection_disable fd;
 
-            b1 = counted_buffer(v.begin(), v.begin() + 2);
-            b2 = counted_buffer(v.begin(), v.begin() + 6);
-            b3 = counted_buffer(v.begin(), v.begin() + 15);
+            b1 = counted_buffer(v.begin(), v.begin() + 20);
+            b2 = counted_buffer(v.begin(), v.begin() + 50);
+            b3 = counted_buffer(v.begin(), v.begin() + 100);
 
             EXPECT_SAME(b1, v1);
             EXPECT_SAME(b2, v2);
@@ -192,29 +245,29 @@ TEST(correctness, copy_assignment) {
 }
 
 TEST(correctness, iterators) {
-    std::vector<counted> v = vec(100);
+    auto v = genvec(100);
     counted_buffer buffer(v.begin(), v.end());
 
     faulty_run([&] {
         EXPECT_NO_THROW([&] {
-            EXPECT_TRUE(std::equal(v.begin(), v.end(), buffer.begin(), buffer.end()));
+            EXPECT_SAME(v, buffer);
         }());
     });
 }
 
 TEST(correctness, const_iterators) {
-    std::vector<counted> v = vec(100);
+    auto v = genvec(100);
     counted_buffer buffer(v.begin(), v.end());
 
     faulty_run([&] {
         EXPECT_NO_THROW([&] {
-            EXPECT_TRUE(std::equal(v.begin(), v.end(), buffer.cbegin(), buffer.cend()));
+            EXPECT_TRUE(std::equal(v.cbegin(), v.cend(), buffer.cbegin(), buffer.cend()));
         }());
     });
 }
 
 TEST(correctness, reverse_iterators) {
-    std::vector<counted> v = vec(100);
+    auto v = genvec(100);
     counted_buffer buffer(v.begin(), v.end());
 
     faulty_run([&] {
@@ -225,12 +278,42 @@ TEST(correctness, reverse_iterators) {
 }
 
 TEST(correctness, const_reverse_iterators) {
-    std::vector<counted> v = vec(100);
+    auto v = genvec(100);
     counted_buffer buffer(v.begin(), v.end());
 
     faulty_run([&] {
         EXPECT_NO_THROW([&] {
             EXPECT_TRUE(std::equal(v.rbegin(), v.rend(), buffer.rcbegin(), buffer.rcend()));
+        }());
+    });
+}
+
+TEST(correctness, pop_front) {
+    test<std::list<counted>>(10, [&] (std::list<counted>& l, counted_buffer& buffer) {
+        EXPECT_NO_THROW([&] {
+            while (!l.empty()) {
+                l.pop_front();
+                buffer.pop_front();
+
+                EXPECT_SAME(l, buffer);
+            }
+
+            EXPECT_TRUE(std::equal(l.begin(), l.end(), buffer.begin(), buffer.end()));
+        }());
+    });
+}
+
+TEST(correctness, pop_back) {
+    test<std::list<counted>>(10, [&] (std::list<counted>& l, counted_buffer& buffer) {
+        EXPECT_NO_THROW([&] {
+            while (!l.empty()) {
+                l.pop_back();
+                buffer.pop_back();
+
+                EXPECT_SAME(l, buffer);
+            }
+
+            EXPECT_TRUE(std::equal(l.begin(), l.end(), buffer.begin(), buffer.end()));
         }());
     });
 }

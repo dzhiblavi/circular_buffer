@@ -292,52 +292,34 @@ private:
     /*
      * Copies all data from 'old_storage to 'new_storage regarding I
      *
-     * 'new_storage's capacity must be equal to 'capacity
+     * Ordering may change. If 'new_capacity < 'old_size,
+     *  then last 'new_capacity - 'old_size data would be lost
      *
+     * @return write_index_ for new_storage. oldest_index_ is equal to 0
      * @gurarantee strong
      * */
-    static void data_copy_impl_(pointer new_storage, pointer old_storage
-                              , size_t capacity, size_t write_index, size_t oldest_index) {
-        if (write_index <= capacity) {
-            std::uninitialized_copy(old_storage + oldest_index, old_storage + write_index
-                                  , new_storage + oldest_index);
+    static size_t data_copy_impl_(pointer new_storage, size_t new_capacity, basic_circular_buffer const& b) {
+        pointer base = b.storage_ + b.oldest_index_;
+        size_t size = std::min(new_capacity, b.size());
+
+        if (b.oldest_index_ + size <= b.capacity()) {
+            std::uninitialized_copy(base, base + size, new_storage);
         } else {
-            write_index -= capacity;
-            std::uninitialized_copy(old_storage, old_storage + write_index, new_storage);
+            pointer old_end = b.storage_ + b.capacity();
+
+            std::uninitialized_copy(base, old_end, new_storage);
+
+            size_t copied = old_end - base;
 
             try {
-                std::uninitialized_copy(old_storage + oldest_index, old_storage + capacity
-                                      , new_storage + oldest_index);
+                std::uninitialized_copy(b.storage_, b.storage_ + (size - copied), new_storage + copied);
             } catch (...) {
-                std::destroy(new_storage, new_storage + write_index);
+                std::destroy(new_storage, new_storage + copied);
                 throw;
             }
         }
-    }
 
-    /*
-     * Equal copy of memory
-     * No additional memory allocation will be done
-     *
-     * This method destorys and deallocates previous storage and replaces it
-     *  with new_storage, filles with data from old_storage regarding I
-     *
-     * @throw any exception caused by copy-construction of T
-     * @guarantee strong
-     * */
-    void exact_copy_impl_(pointer_hold_ new_storage, pointer old_storage,
-                          size_t capacity, size_t write_index, size_t oldest_index) {
-        // fill new storage with new data
-        data_copy_impl_(new_storage.get(), old_storage, capacity, write_index, oldest_index);
-
-        // now replace the data
-        destroy_(storage_, capacity_(), oldest_index_, write_index_);
-        alloc_traits::deallocate(alloc_(), storage_, capacity_());
-
-        write_index_ = write_index;
-        oldest_index_ = oldest_index;
-        capacity_() = capacity;
-        storage_ = new_storage.release();
+        return size;
     }
 
 public:
@@ -418,8 +400,13 @@ public:
      * @throw any exception caused by copy-construction of T
      * */
     basic_circular_buffer(basic_circular_buffer const& other) {
-        exact_copy_impl_(allocate_(other.capacity()), other.storage_
-                       , other.capacity(), other.write_index_, other.oldest_index_);
+        pointer_hold_ new_storage = allocate_(other.capacity());
+
+        write_index_ = data_copy_impl_(new_storage.get(), other.capacity(), other);
+
+        oldest_index_ = 0;
+        capacity_() = other.capacity();
+        storage_ = new_storage.release();
     }
 
     /*
@@ -437,7 +424,7 @@ public:
      * Copy-assignment operator
      *
      * After this, 'size() = 'other.size()
-     *             'capacity() = 'other.capacity()
+     *             'capacity() must not be equal to 'other.capacity()
      *             and all elements in range [0, size() - 1) are equal
      *             in both buffers respectively
      *
@@ -451,8 +438,19 @@ public:
         if (this == &other)
             return *this;
 
-        exact_copy_impl_(allocate_(other.capacity()), other.storage_
-                       , other.capacity(), other.write_index_, other.oldest_index_);
+        if (capacity() < other.size()) {
+            // strong guarantee
+            basic_circular_buffer tmp(other);
+            swap(tmp);
+        } else {
+            // basic guarantee
+            destroy_(storage_, capacity(), oldest_index_, write_index_);
+
+            write_index_ = 0;
+            oldest_index_ = 0;
+            write_index_ = data_copy_impl_(storage_, capacity(), other);
+        }
+
         return *this;
     }
 
@@ -541,13 +539,13 @@ public:
     }
 
     /*
-     * Removes the first element in the buffer
+     * Removes the first element
      *
      * After this, 'size() = 'size() - 1
      *
      * If the buffer is empty, behaviour is undefined
      * */
-    void pop() noexcept {
+    void pop_front() noexcept {
         alloc_traits::destroy(alloc_(), storage_ + oldest_index_);
         ++oldest_index_;
 
@@ -555,6 +553,35 @@ public:
             oldest_index_ = 0;
             write_index_ -= capacity();
         }
+    }
+
+    /*
+     * Removes the last element
+     *
+     * After this, 'size() = 'size() - 1
+     *
+     * If the buffer is empty, behaviour is undefined
+     * */
+    void pop_back() noexcept {
+        alloc_traits::destroy(alloc_(), storage_ + checked_index_(write_index_ - 1));
+        --write_index_;
+    }
+
+    /*
+     * Changes capacity
+     *
+     * If capacity < size(), then first capacity - size() data would be lost
+     *
+     * @param capacity
+     *
+     * After this, 'capacity() = capacity
+     *
+     * @throw std::bad_alloc
+     * @throw any exception caused by copy- or move-construction of T
+     * @guarantee strong
+     * */
+    void resize(size_t capacity) {
+
     }
 
     /*
@@ -672,7 +699,7 @@ public:
     }
 
     [[nodiscard]] bool empty() const noexcept {
-        return size() == 0;
+        return write_index_ == 0;
     }
 };
 
