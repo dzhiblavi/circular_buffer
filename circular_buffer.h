@@ -570,9 +570,9 @@ public:
     /*
      * Changes capacity
      *
-     * If capacity < size(), then first capacity - size() data would be lost
-     *
      * @param capacity
+     *
+     * If capacity < size(), then last capacity - size() data would be lost
      *
      * After this, 'capacity() = capacity
      *
@@ -581,7 +581,18 @@ public:
      * @guarantee strong
      * */
     void resize(size_t capacity) {
+        pointer_hold_ new_storage = allocate_(capacity);
 
+        size_t wi = write_index_;
+        size_t oi = oldest_index_;
+
+        write_index_ = data_copy_impl_(new_storage.get(), capacity, *this);
+        oldest_index_ = 0;
+
+        destroy_(storage_, capacity_(), oi, wi);
+        alloc_traits::deallocate(alloc_(), storage_, capacity_());
+
+        storage_ = new_storage.release();
     }
 
     /*

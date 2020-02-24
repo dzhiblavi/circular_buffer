@@ -33,13 +33,14 @@ void itrace(std::ostream&) {
 template <typename U, typename... Us>
 void trace(std::ostream& os, U const& u, Us&&... us) {
     os << "{";
-    for (size_t i = 0; i < u.size(); ++i) {
-        os << u[i];
+    size_t i = 0;
+    for (auto const& v : u) {
+        os << v;
         if (i < u.size() - 1)
             os << ", ";
+        ++i;
     }
     os << "}" << std::endl;
-
     trace(os, us...);
 }
 
@@ -54,7 +55,6 @@ void itrace(std::ostream& os, U const& u, Us&&... us) {
         ++i;
     }
     os << "}" << std::endl;
-
     itrace(os, us...);
 }
 
@@ -298,7 +298,7 @@ TEST(correctness, pop_front) {
                 EXPECT_SAME(l, buffer);
             }
 
-            EXPECT_TRUE(std::equal(l.begin(), l.end(), buffer.begin(), buffer.end()));
+            EXPECT_SAME(l, buffer);
         }());
     });
 }
@@ -313,7 +313,19 @@ TEST(correctness, pop_back) {
                 EXPECT_SAME(l, buffer);
             }
 
-            EXPECT_TRUE(std::equal(l.begin(), l.end(), buffer.begin(), buffer.end()));
+            EXPECT_SAME(l, buffer);
         }());
+    });
+}
+
+TEST(correctness, resize) {
+    test<std::list<counted>>(100, [&] (std::list<counted>& l, counted_buffer& buffer) {
+        buffer.resize(buffer.size() / 2);
+
+        auto it = l.begin();
+        std::advance(it, l.size() / 2);
+        l = std::list<counted>(l.begin(), it);
+
+        EXPECT_SAME(l, buffer);
     });
 }
