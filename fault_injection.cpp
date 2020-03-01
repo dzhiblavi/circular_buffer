@@ -27,10 +27,10 @@ struct mmap_allocator {
 };
 
 struct fault_injection_context {
-    std::vector<size_t, mmap_allocator<size_t> > skip_ranges;
+    std::vector<size_t, mmap_allocator<size_t>> skip_ranges;
     size_t error_index = 0;
     size_t skip_index = 0;
-    bool fault_registred = false;
+    bool fault_registered = false;
 };
 
 thread_local bool disabled = false;
@@ -61,7 +61,7 @@ bool should_inject_fault() {
     if (context->error_index == context->skip_ranges.size()) {
         ++context->error_index;
         context->skip_ranges.push_back(0);
-        context->fault_registred = true;
+        context->fault_registered = true;
         return true;
     }
 
@@ -70,7 +70,7 @@ bool should_inject_fault() {
     if (context->skip_index == context->skip_ranges[context->error_index]) {
         ++context->error_index;
         context->skip_index = 0;
-        context->fault_registred = true;
+        context->fault_registered = true;
         return true;
     }
 
@@ -100,11 +100,11 @@ void faulty_run(std::function<void ()> const& f) {
             ++ctx.skip_ranges.back();
             ctx.error_index = 0;
             ctx.skip_index = 0;
-            assert(ctx.fault_registred);
-            ctx.fault_registred = false;
+            assert(ctx.fault_registered);
+            ctx.fault_registered = false;
             continue;
         }
-        assert(!ctx.fault_registred);
+        assert(!ctx.fault_registered);
         break;
     }
     context = nullptr;
@@ -112,7 +112,7 @@ void faulty_run(std::function<void ()> const& f) {
 }
 
 fault_injection_disable::fault_injection_disable()
-        : was_disabled(disabled) {
+    : was_disabled(disabled) {
     disabled = true;
 }
 

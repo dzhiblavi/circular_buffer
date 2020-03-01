@@ -4,7 +4,7 @@ project(circular_buffer)
 set(CMAKE_CXX_STANDARD 17)
 
 add_executable(circular_buffer main.cpp
-                               circular_buffer.h
+        basic_circular_buffer.h
                                compressed_pair.h
                                utility.h
                                fault_injection.cpp

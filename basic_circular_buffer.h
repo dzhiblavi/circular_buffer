@@ -29,9 +29,9 @@ private:
 
 private:
     basic_circular_buffer_iterator_impl(pointer base, size_t index, size_t capacity)
-            : base_(base)
-            , index_(index)
-            , capacity_(capacity) {}
+        : base_(base)
+        , index_(index)
+        , capacity_(capacity) {}
 
     size_t checked_index_(size_t index) const noexcept {
         return index < capacity_ ? index_ : index_ - capacity_;
@@ -250,7 +250,7 @@ private:
      * @guarantee strong
      * */
     template <typename It>
-    It insert_impl_(It first, It last) {
+    It append_impl_(It first, It last) {
         size_t constructed = 0;
         size_t old_write = write_index_;
 
@@ -259,6 +259,7 @@ private:
                 push_back(*first++);
                 ++constructed;
             }
+
             return first;
         } catch (...) {
             destroy_(storage_, capacity(), old_write, write_index_);
@@ -416,7 +417,7 @@ public:
             , typename = std::enable_if_t<is_input_iterator_v<It>>>
     basic_circular_buffer(size_t initial_capacity, It first, It last)
         : basic_circular_buffer(initial_capacity) {
-        insert(first, last);
+        append(first, last);
     }
 
     ~basic_circular_buffer() noexcept {
@@ -479,11 +480,9 @@ public:
             return *this;
 
         if (capacity() < other.size()) {
-            // strong guarantee
             basic_circular_buffer tmp(other);
             swap(tmp);
         } else {
-            // basic guarantee
             destroy_(storage_, capacity(), oldest_index_, write_index_);
 
             write_index_ = 0;
@@ -518,8 +517,8 @@ public:
     }
 
     /*
-     * Inserts given range to the end of the buffer while there is empty space for new elements
-     * @param first, last -- range to be inserted
+     * appends given range to the end of the buffer while there is empty space for new elements
+     * @param first, last -- range to be appended
      *
      * This method does not overwrite existing data
      *
@@ -528,8 +527,8 @@ public:
      * */
     template <typename It
             , typename = std::enable_if_t<is_input_iterator_v<It>>>
-    It insert(It first, It last) {
-        return insert_impl_(first, last);
+    It append(It first, It last) {
+        return append_impl_(first, last);
     }
 
     /*
