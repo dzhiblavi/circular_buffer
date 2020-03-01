@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "basic_circular_buffer.h"
+#include "circular_buffer.h"
 #include "counted.h"
 #include "fault_injection.h"
 

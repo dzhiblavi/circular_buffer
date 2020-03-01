@@ -1,5 +1,5 @@
-#ifndef CIRCULAR_BUFFER_H
-#define CIRCULAR_BUFFER_H
+#ifndef BASIC_CIRCULAR_BUFFER_H
+#define BASIC_CIRCULAR_BUFFER_H
 
 #include <vector>
 #include <memory>
@@ -742,4 +742,4 @@ public:
     }
 };
 
-#endif // CIRCULAR_BUFFER_H
+#endif // BASIC_CIRCULAR_BUFFER_H
