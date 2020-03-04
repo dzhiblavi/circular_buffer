@@ -12,4 +12,7 @@ constexpr bool is_input_iterator_v = has_category<It, std::input_iterator_tag>::
 template <typename It>
 constexpr bool is_forward_iterator_v = has_category<It, std::forward_iterator_tag>::value;
 
+template <typename It>
+constexpr bool is_output_iterator_v = has_category<It, std::output_iterator_tag>::value;
+
 #endif // UTILITY_H

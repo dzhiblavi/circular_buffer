@@ -10,6 +10,7 @@
 #include "fault_injection.h"
 
 typedef basic_circular_buffer<counted> counted_buffer;
+typedef circular_buffer<counted> counted_th_buffer;
 
 template <typename T>
 T gen(size_t size) {
@@ -327,5 +328,19 @@ TEST(correctness, resize) {
         l = std::list<counted>(l.begin(), it);
 
         EXPECT_SAME(l, buffer);
+    });
+}
+
+TEST(th_correctness, default_constructor) {
+    faulty_run([] {
+        counted::no_new_instances_guard guard;
+
+        counted_th_buffer buffer;
+
+        EXPECT_EQ(0, buffer.size().first);
+        EXPECT_EQ(true, buffer.empty().first);
+        EXPECT_EQ(0, buffer.capacity().first);
+
+        guard.expect_no_instances();
     });
 }
