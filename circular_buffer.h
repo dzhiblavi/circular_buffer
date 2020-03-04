@@ -41,50 +41,85 @@ private:
     }
 
 public:
+    /*
+     * @see basic_circular_buffer
+     * */
     circular_buffer() noexcept = default;
 
+    /*
+     * @see basic_circular_buffer
+     * */
     circular_buffer(size_t initial_capacity)
         : base_(initial_capacity) {
     }
 
+    /*
+     * @see basic_circular_buffer
+     * */
     template <typename ForwardIt>
     circular_buffer(ForwardIt first, ForwardIt last)
         : base_(first, last) {
     }
 
+    /*
+     * @see basic_circular_buffer
+     * */
     template <typename It>
     circular_buffer(It first, It last, size_t initial_capacity)
         : base_(first, last, initial_capacity) {
     }
 
+    /*
+     * @see basic_circular_buffer
+     * */
     ~circular_buffer() = default;
 
+    /*
+     * @see basic_circular_buffer
+     * */
     circular_buffer(circular_buffer const& other) {
         std::scoped_lock<std::mutex, std::mutex> lg(m_, other.m_);
         *static_cast<base_*>(this)(other);
     }
 
+    /*
+     * @see basic_circular_buffer
+     * */
     circular_buffer& operator=(circular_buffer const& other) {
         std::scoped_lock<std::mutex, std::mutex> lg(m_, other.m_);
 
         return *static_cast<base_*>(this) = other;
     }
 
+    /*
+     * @see basic_circular_buffer
+     * */
     circular_buffer(circular_buffer&& other) {
         swap(other);
     }
 
+    /*
+     * @see basic_circular_buffer
+     * */
     circular_buffer& operator=(circular_buffer&& other) {
         swap(other);
 
         return *this;
     }
 
+    /*
+     * @see basic_circular_buffer
+     * */
     void swap(circular_buffer& other) {
         std::scoped_lock<std::mutex, std::mutex> lg(m_, other.m_);
         base()->swap(other);
     }
 
+    /*
+     * @see basic_circular_buffer
+     *
+     * Call of this method may unlock 'wait method
+     * */
     template <typename It>
     void append(It first, It last) {
         std::lock_guard<std::mutex> lg(m_);
@@ -92,18 +127,33 @@ public:
         cv_.notify_all();
     }
 
+    /*
+     * @see basic_circular_buffer
+     *
+     * Call of this method may unlock 'wait method
+     * */
     void push_back(const_reference value) {
         std::lock_guard<std::mutex> lg(m_);
         base()->push_back(value);
         cv_.notify_one();
     }
 
+    /*
+     * @see basic_circular_buffer
+     *
+     * Call of this method may unlock 'wait method
+     * */
     void push_back(value_type&& value) {
         std::lock_guard<std::mutex> lg(m_);
         base()->push_back(std::move(value));
         cv_.notify_one();
     }
 
+    /*
+     * @see basic_circular_buffer
+     *
+     * Call of this method may unkock 'wait method
+     * */
     template <typename... Args>
     void emplace_back(Args&&... args) {
         std::lock_guard<std::mutex> lg(m_);
@@ -111,6 +161,16 @@ public:
         cv_.notify_one();
     }
 
+    /*
+     * Threaded version of pop_front() from basic_circular_buffer
+     *
+     * This method blocks thread execution until buffer becomes non-empty
+     *  then it effectively returns front() and performs pop_front()
+     *
+     * @param value -- value to be stored in
+     * @throw any exception caused by move-assignment of T
+     * @guarantee basic
+     * */
     void wait_pop(T& value) noexcept(std::is_nothrow_move_assignable_v<T>) {
         std::lock_guard<std::mutex> lg(m_);
 
@@ -118,10 +178,26 @@ public:
             return !base()->empty();
         });
 
-        value = std::move(base()->front());
+        try {
+            value = std::move(base()->front());
+        } catch (...) {
+            base()->pop_front();
+            throw;
+        }
+
         base()->pop_front();
     }
 
+    /*
+     * Threaded version of pop_front() from basic_circular_buffer
+     *
+     * This method blocks thread execution until buffer becomes non-empty
+     *  then it effectively returns front() and performs pop_front()
+     *
+     * @return shared pointer to the front element
+     * @throw any exception caused by move-construction of T
+     * @guarantee basic
+     * */
     std::shared_ptr<T> wait_pop() noexcept(std::is_nothrow_move_constructible_v<T>) {
         std::lock_guard<std::mutex> lg(m_);
 
@@ -129,12 +205,30 @@ public:
             return !base()->empty();
         });
 
-        std::shared_ptr<T> ret = std::make_shared<T>(std::move(base()->front()));
+        std::shared_ptr<T> ret;
+        try {
+            ret = std::make_shared<T>(std::move(base()->front()));
+        } catch (...) {
+            base()->pop_front();
+            throw;
+        }
+
         base()->pop_front();
 
         return ret;
     }
 
+    /*
+     * Threaded version of pop_front() from basic_circular_buffer
+     *
+     * This method does NOT block current thread execution
+     *
+     * If the buffer is empty, nothing is done
+     *
+     * @param value -- value to be stored in
+     * @throw any exception caused by move-assignment of T
+     * @guarantee basic
+     * */
     bool try_pop(T& value) noexcept(std::is_nothrow_move_assignable_v<T>) {
         std::lock_guard<std::mutex> lg(m_);
 
@@ -142,12 +236,29 @@ public:
             return false;
         }
 
-        value = std::move(base()->front());
+        try {
+            value = std::move(base()->front());
+        } catch (...) {
+            base()->pop_front();
+            throw;
+        }
+
         base()->pop_front();
 
         return true;
     }
 
+    /*
+     * Threaded version of pop_front() from basic_circular_buffer
+     *
+     * This method does NOT block current thread execution
+     *
+     * If the buffer is empty, nothing is done
+     *
+     * @return shared pointer to the front element
+     * @throw any exception caused by move-construction of T
+     * @guarantee basic
+     * */
     std::shared_ptr<T> try_pop() noexcept(std::is_nothrow_move_constructible_v<T>) {
         std::lock_guard<std::mutex> lg(m_);
 
@@ -161,9 +272,17 @@ public:
         return ret;
     }
 
+    /*
+     * This method gets not more than @param 'count first elements,
+     *   puts them into @param [first...) range and removes them from the buffer
+     *
+     * @return iterator to the element after the last element read
+     * @throw any exception caused by move-assignment of T
+     * @guarantee basic
+     * */
     template <typename OutputIt
             , typename = std::enable_if_t<is_output_iterator_v<OutputIt>>>
-    size_t npop(OutputIt first, size_t count) {
+    OutputIt npop(OutputIt first, size_t count) {
         std::lock_guard<std::mutex> lg(m_);
         size_t read = 0;
 
@@ -171,26 +290,54 @@ public:
             return !base()->empty();
         });
 
-        for (; read < count && !base()->empty(); ++read, ++first) {
-            first = std::move(base()->front());
+        while (read < count && !base()->empty()) {
+            try {
+                first = std::move(base()->front());
+            } catch (...) {
+                base()->pop_front();
+                throw;
+            }
+
             base()->pop_front();
+            ++first;
         }
 
-        return read;
+        return first;
     }
 
+    /*
+     * @see basic_circular_buffer
+     *
+     * @return pair <size, lock>
+     *
+     * Where the lock is used to guarantee correct information
+     * */
     std::pair<size_t, std::unique_lock<std::mutex>> size() const noexcept {
         std::unique_lock<std::mutex> lg(m_);
 
         return {base()->size(), std::move(lg)};
     }
 
+    /*
+     * @see basic_circular_buffer
+     *
+     * @return pair <size, lock>
+     *
+     * Where the lock is used to guarantee correct information
+     * */
     std::pair<size_t, std::unique_lock<std::mutex>> capacity() const noexcept {
         std::unique_lock<std::mutex> lg(m_);
 
         return {base()->capacity(), std::move(lg)};
     }
 
+    /*
+     * @see basic_circular_buffer
+     *
+     * @return pair <size, lock>
+     *
+     * Where the lock is used to guarantee correct information
+     * */
     std::pair<bool, std::unique_lock<std::mutex>> empty() const noexcept {
         std::unique_lock<std::mutex> lg(m_);
 
@@ -201,9 +348,21 @@ public:
         return base()->get_allocator();
     }
 
+    /*
+     * @see basic_circular_buffer
+     * */
     void resize(size_t capacity) {
         std::lock_guard<std::mutex> lg(m_);
         base()->resize(capacity);
+    }
+
+    /*
+     * Locks inner structure of the buffer
+     *
+     * @return std::unique_lock representing storage ownage
+     * */
+    std::unique_lock<std::mutex> lock() noexcept {
+        return std::unique_lock<std::mutex>(m_);
     }
 };
 
