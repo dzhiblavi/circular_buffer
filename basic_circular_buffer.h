@@ -270,6 +270,10 @@ private:
 
     template <typename... Args>
     bool push_back_impl_(Args&&... args) {
+        if (capacity_() == 0) {
+            return false;
+        }
+
         bool overwrite = write_index_ >= capacity() && write_index_ - capacity() == oldest_index_;
         size_t construct_index = checked_index_(write_index_);
 

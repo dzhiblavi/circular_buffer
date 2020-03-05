@@ -1,4 +1,5 @@
 #include <list>
+#include <thread>
 #include <vector>
 #include <algorithm>
 
@@ -35,12 +36,9 @@ void itrace(std::ostream&) {
 template <typename U, typename... Us>
 void trace(std::ostream& os, U const& u, Us&&... us) {
     os << "{";
-    size_t i = 0;
     for (auto const& v : u) {
         os << v;
-        if (i < u.size() - 1)
-            os << ", ";
-        ++i;
+        os << ", ";
     }
     os << "}" << std::endl;
     trace(os, us...);
@@ -49,12 +47,9 @@ void trace(std::ostream& os, U const& u, Us&&... us) {
 template <typename U, typename... Us>
 void itrace(std::ostream& os, U const& u, Us&&... us) {
     os << "{";
-    size_t i = 0;
     for (auto const& v : u) {
         os << v;
-        if (i < u.size() - 1)
-            os << ", ";
-        ++i;
+        os << ", ";
     }
     os << "}" << std::endl;
     itrace(os, us...);
@@ -63,7 +58,7 @@ void itrace(std::ostream& os, U const& u, Us&&... us) {
 template <typename U, typename V>
 void EXPECT_SAME(U const& u, V const& v) {
 #if 0
-    itrace(std::cerr, u, v);
+    trace(std::cerr, u, v);
 #endif
 
     EXPECT_TRUE(std::equal(u.begin(), u.end(), v.begin(), v.end()));
@@ -90,6 +85,19 @@ void test(size_t c_size, F&& f) {
 
             f(v, buffer);
         });
+    }
+}
+
+template <typename F>
+void mthread(size_t th, F&& f) {
+    std::vector<std::thread> ts;
+
+    while (th--) {
+        ts.emplace_back(f);
+    }
+
+    for (auto& t : ts) {
+        t.join();
     }
 }
 
@@ -331,16 +339,41 @@ TEST(correctness, resize) {
     });
 }
 
-TEST(th_correctness, default_constructor) {
-    faulty_run([] {
-        counted::no_new_instances_guard guard;
+TEST(th_correctness, copy_construction) {
+    auto v = genvec(100);
+    counted_th_buffer base_buffer(v.begin(), v.end());
 
-        counted_th_buffer buffer;
+    mthread(4, [&] {
+        counted_th_buffer buffer(base_buffer);
 
-        EXPECT_EQ(0, buffer.size().first);
-        EXPECT_EQ(true, buffer.empty().first);
-        EXPECT_EQ(0, buffer.capacity().first);
-
-        guard.expect_no_instances();
+        EXPECT_SAME(base_buffer, buffer);
     });
+}
+
+TEST(th_correctness, copy_assignment) {
+    auto v = genvec(100);
+    counted_th_buffer base_buffer(v.begin(), v.end());
+
+    mthread(4, [&] {
+        counted_th_buffer buffer = base_buffer;
+
+        EXPECT_SAME(base_buffer, buffer);
+    });
+}
+
+TEST(th_correctness, multiple_threads_push_back) {
+    auto v = genvec(100);
+    counted_th_buffer buffer(400);
+
+    mthread(4, [&] {
+        for (auto const &x : v) {
+            buffer.push_back(x);
+        }
+    });
+
+    EXPECT_EQ(400, buffer.size().first);
+
+#if 1
+    trace(std::cout, buffer);
+#endif
 }

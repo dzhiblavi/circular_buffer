@@ -32,12 +32,12 @@ private:
     std::condition_variable cv_;
 
 private:
-    base_* base() noexcept {
-        return static_cast<base_*>(this);
+    base_ *base() noexcept {
+        return static_cast<base_ *>(this);
     }
 
-    base_ const* base() const noexcept {
-        return static_cast<base_ const*>(this);
+    base_ const *base() const noexcept {
+        return static_cast<base_ const *>(this);
     }
 
 public:
@@ -50,23 +50,23 @@ public:
      * @see basic_circular_buffer
      * */
     circular_buffer(size_t initial_capacity)
-        : base_(initial_capacity) {
+            : base_(initial_capacity) {
     }
 
     /*
      * @see basic_circular_buffer
      * */
-    template <typename ForwardIt>
+    template<typename ForwardIt>
     circular_buffer(ForwardIt first, ForwardIt last)
-        : base_(first, last) {
+            : base_(first, last) {
     }
 
     /*
      * @see basic_circular_buffer
      * */
-    template <typename It>
+    template<typename It>
     circular_buffer(It first, It last, size_t initial_capacity)
-        : base_(first, last, initial_capacity) {
+            : base_(first, last, initial_capacity) {
     }
 
     /*
@@ -77,31 +77,32 @@ public:
     /*
      * @see basic_circular_buffer
      * */
-    circular_buffer(circular_buffer const& other) {
+    circular_buffer(circular_buffer const &other)
+        : base_() {
         std::scoped_lock<std::mutex, std::mutex> lg(m_, other.m_);
-        *static_cast<base_*>(this)(other);
+        *base() = other;
     }
 
     /*
      * @see basic_circular_buffer
      * */
-    circular_buffer& operator=(circular_buffer const& other) {
+    circular_buffer &operator=(circular_buffer const &other) {
         std::scoped_lock<std::mutex, std::mutex> lg(m_, other.m_);
-
-        return *static_cast<base_*>(this) = other;
+        *base() = other;
+        return *this;
     }
 
     /*
      * @see basic_circular_buffer
      * */
-    circular_buffer(circular_buffer&& other) {
+    circular_buffer(circular_buffer &&other) {
         swap(other);
     }
 
     /*
      * @see basic_circular_buffer
      * */
-    circular_buffer& operator=(circular_buffer&& other) {
+    circular_buffer &operator=(circular_buffer &&other) {
         swap(other);
 
         return *this;
@@ -110,7 +111,7 @@ public:
     /*
      * @see basic_circular_buffer
      * */
-    void swap(circular_buffer& other) {
+    void swap(circular_buffer &other) {
         std::scoped_lock<std::mutex, std::mutex> lg(m_, other.m_);
         base()->swap(other);
     }
@@ -120,7 +121,7 @@ public:
      *
      * Call of this method may unlock 'wait method
      * */
-    template <typename It>
+    template<typename It>
     void append(It first, It last) {
         std::lock_guard<std::mutex> lg(m_);
         base()->append(first, last);
@@ -143,7 +144,7 @@ public:
      *
      * Call of this method may unlock 'wait method
      * */
-    void push_back(value_type&& value) {
+    void push_back(value_type &&value) {
         std::lock_guard<std::mutex> lg(m_);
         base()->push_back(std::move(value));
         cv_.notify_one();
@@ -154,8 +155,8 @@ public:
      *
      * Call of this method may unkock 'wait method
      * */
-    template <typename... Args>
-    void emplace_back(Args&&... args) {
+    template<typename... Args>
+    void emplace_back(Args &&... args) {
         std::lock_guard<std::mutex> lg(m_);
         base()->emplace_back(std::forward<Args>(args)...);
         cv_.notify_one();
@@ -171,7 +172,7 @@ public:
      * @throw any exception caused by move-assignment of T
      * @guarantee basic
      * */
-    void wait_pop(T& value) noexcept(std::is_nothrow_move_assignable_v<T>) {
+    void wait_pop(T &value) noexcept(std::is_nothrow_move_assignable_v<T>) {
         std::lock_guard<std::mutex> lg(m_);
 
         cv_.wait(lg, [this] {
@@ -229,7 +230,7 @@ public:
      * @throw any exception caused by move-assignment of T
      * @guarantee basic
      * */
-    bool try_pop(T& value) noexcept(std::is_nothrow_move_assignable_v<T>) {
+    bool try_pop(T &value) noexcept(std::is_nothrow_move_assignable_v<T>) {
         std::lock_guard<std::mutex> lg(m_);
 
         if (base()->empty()) {
@@ -280,8 +281,7 @@ public:
      * @throw any exception caused by move-assignment of T
      * @guarantee basic
      * */
-    template <typename OutputIt
-            , typename = std::enable_if_t<is_output_iterator_v<OutputIt>>>
+    template<typename OutputIt, typename = std::enable_if_t<is_output_iterator_v<OutputIt>>>
     OutputIt npop(OutputIt first, size_t count) {
         std::lock_guard<std::mutex> lg(m_);
         size_t read = 0;
@@ -364,6 +364,55 @@ public:
     std::unique_lock<std::mutex> lock() noexcept {
         return std::unique_lock<std::mutex>(m_);
     }
+
+    iterator begin() noexcept {
+        return base()->begin();
+    }
+
+    iterator end() noexcept {
+        return base()->end();
+    }
+
+    const_iterator begin() const noexcept {
+        return base()->begin();
+    }
+
+    const_iterator end() const noexcept {
+        return base()->end();
+    }
+
+    const_iterator cbegin() const noexcept {
+        return base()->cbegin();
+    }
+
+    const_iterator cend() const noexcept {
+        return base()->cend();
+    }
+
+    reverse_iterator rbegin() noexcept {
+        return base()->rbegin();
+    }
+
+    reverse_iterator rend() noexcept {
+        return base()->rend();
+    }
+
+    const_reverse_iterator rbegin() const noexcept {
+        return base()->rbegin();
+    }
+
+    const_reverse_iterator rend() const noexcept {
+        return base()->rend();
+    }
+
+    const_reverse_iterator rcbegin() const noexcept {
+        return base()->rcbegin();
+    }
+
+    const_reverse_iterator rcend() const noexcept {
+        return base()->rcend();
+
+    };
 };
 
 #endif // CIRCULAR_BUFFER_H
