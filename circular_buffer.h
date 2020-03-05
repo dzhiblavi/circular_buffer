@@ -4,9 +4,9 @@
 #include "basic_circular_buffer.h"
 
 /*
- * A threadsafe version of basic_circular_buffer
+ * Threadsafe basic_circular_buffer
  * */
-template <typename T, typename Alloc = std::allocator<T>>
+template<typename T, typename Alloc = std::allocator<T>>
 class circular_buffer : private basic_circular_buffer<T, Alloc> {
     typedef basic_circular_buffer<T, Alloc> base_;
 
@@ -72,23 +72,22 @@ public:
     /*
      * @see basic_circular_buffer
      * */
-    ~circular_buffer() = default;
+    ~circular_buffer() noexcept = default;
 
     /*
      * @see basic_circular_buffer
      * */
     circular_buffer(circular_buffer const &other)
-        : base_() {
-        std::scoped_lock<std::mutex, std::mutex> lg(m_, other.m_);
-        *base() = other;
+            : base_(other) {
     }
 
     /*
      * @see basic_circular_buffer
      * */
-    circular_buffer &operator=(circular_buffer const &other) {
+    circular_buffer& operator=(circular_buffer const &other) {
         std::scoped_lock<std::mutex, std::mutex> lg(m_, other.m_);
         *base() = other;
+
         return *this;
     }
 
@@ -102,7 +101,7 @@ public:
     /*
      * @see basic_circular_buffer
      * */
-    circular_buffer &operator=(circular_buffer &&other) {
+    circular_buffer& operator=(circular_buffer &&other) {
         swap(other);
 
         return *this;
@@ -277,6 +276,8 @@ public:
      * This method gets not more than @param 'count first elements,
      *   puts them into @param [first...) range and removes them from the buffer
      *
+     * This method blocks thread execution until the buffer becomes non-empty
+     *
      * @return iterator to the element after the last element read
      * @throw any exception caused by move-assignment of T
      * @guarantee basic
@@ -360,11 +361,32 @@ public:
      * Locks inner structure of the buffer
      *
      * @return std::unique_lock representing storage ownage
+     *
+     * Typical usage example:
+     *     circular_buffer buffer;
+     *     ...
+     *
+     *     {
+     *         // start the buffer ownage
+     *         buffer.lock();
+     *
+     *         for (auto const& x : buffer) {
+     *             // buffer can be accessed safely
+     *         }
+     *     }
      * */
     std::unique_lock<std::mutex> lock() noexcept {
         return std::unique_lock<std::mutex>(m_);
     }
 
+    /*
+     * Iterators
+     *
+     * Iterators do not provide object ownership
+     *  (their usage is not thread safe automatically)
+     *
+     * @see basic_circular_buffer
+     * */
     iterator begin() noexcept {
         return base()->begin();
     }

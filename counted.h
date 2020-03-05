@@ -2,6 +2,7 @@
 #define COUNTED_H
 
 #include <set>
+#include <mutex>
 
 struct counted {
     struct no_new_instances_guard;

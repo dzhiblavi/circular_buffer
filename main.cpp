@@ -13,7 +13,7 @@
 typedef basic_circular_buffer<counted> counted_buffer;
 typedef circular_buffer<counted> counted_th_buffer;
 
-template <typename T>
+template<typename T>
 T gen(size_t size) {
     T ret;
 
@@ -27,16 +27,16 @@ std::vector<counted> genvec(size_t size) {
     return gen<std::vector<counted>>(size);
 }
 
-void trace(std::ostream&) {
+void trace(std::ostream &) {
 }
 
-void itrace(std::ostream&) {
+void itrace(std::ostream &) {
 }
 
-template <typename U, typename... Us>
-void trace(std::ostream& os, U const& u, Us&&... us) {
+template<typename U, typename... Us>
+void trace(std::ostream &os, U const &u, Us &&... us) {
     os << "{";
-    for (auto const& v : u) {
+    for (auto const &v : u) {
         os << v;
         os << ", ";
     }
@@ -44,10 +44,10 @@ void trace(std::ostream& os, U const& u, Us&&... us) {
     trace(os, us...);
 }
 
-template <typename U, typename... Us>
-void itrace(std::ostream& os, U const& u, Us&&... us) {
+template<typename U, typename... Us>
+void itrace(std::ostream &os, U const &u, Us &&... us) {
     os << "{";
-    for (auto const& v : u) {
+    for (auto const &v : u) {
         os << v;
         os << ", ";
     }
@@ -55,8 +55,8 @@ void itrace(std::ostream& os, U const& u, Us&&... us) {
     itrace(os, us...);
 }
 
-template <typename U, typename V>
-void EXPECT_SAME(U const& u, V const& v) {
+template<typename U, typename V>
+void EXPECT_SAME(U const &u, V const &v) {
 #if 0
     trace(std::cerr, u, v);
 #endif
@@ -64,8 +64,8 @@ void EXPECT_SAME(U const& u, V const& v) {
     EXPECT_TRUE(std::equal(u.begin(), u.end(), v.begin(), v.end()));
 }
 
-template <typename C, typename F>
-void test(size_t c_size, F&& f) {
+template<typename C, typename F>
+void test(size_t c_size, F &&f) {
     C vbase = gen<C>(c_size), v;
     counted_buffer buffer;
 
@@ -88,15 +88,15 @@ void test(size_t c_size, F&& f) {
     }
 }
 
-template <typename F>
-void mthread(size_t th, F&& f) {
+template<typename F>
+void mthread(size_t th, F &&f) {
     std::vector<std::thread> ts;
 
     while (th--) {
         ts.emplace_back(f);
     }
 
-    for (auto& t : ts) {
+    for (auto &t : ts) {
         t.join();
     }
 }
@@ -149,27 +149,27 @@ TEST(correctness, push_back) {
     std::vector<counted> subvec;
 
     faulty_run([&] {
-       counted_buffer buffer(25);
+        counted_buffer buffer(25);
 
-       for (size_t i = 0; i < v.size(); ++i) {
-           buffer.push_back(v[i]);
+        for (size_t i = 0; i < v.size(); ++i) {
+            buffer.push_back(v[i]);
 
-           {
-               fault_injection_disable fd;
+            {
+                fault_injection_disable fd;
 
-               if (i < 25) {
-                   subvec = std::vector<counted>(v.begin(), v.begin() + i + 1);
-               } else {
-                   subvec = std::vector<counted>(v.begin() + (i - 24), v.begin() + i + 1);
-               }
-           }
+                if (i < 25) {
+                    subvec = std::vector<counted>(v.begin(), v.begin() + i + 1);
+                } else {
+                    subvec = std::vector<counted>(v.begin() + (i - 24), v.begin() + i + 1);
+                }
+            }
 
-           EXPECT_EQ(buffer.size(), std::min(i + 1, size_t(25)));
-           EXPECT_FALSE(buffer.empty());
-           EXPECT_EQ(25, buffer.capacity());
-           EXPECT_EQ(v[i], buffer.back());
-           EXPECT_SAME(subvec, buffer);
-       }
+            EXPECT_EQ(buffer.size(), std::min(i + 1, size_t(25)));
+            EXPECT_FALSE(buffer.empty());
+            EXPECT_EQ(25, buffer.capacity());
+            EXPECT_EQ(v[i], buffer.back());
+            EXPECT_SAME(subvec, buffer);
+        }
     });
 }
 
@@ -298,7 +298,7 @@ TEST(correctness, const_reverse_iterators) {
 }
 
 TEST(correctness, pop_front) {
-    test<std::list<counted>>(10, [&] (std::list<counted>& l, counted_buffer& buffer) {
+    test<std::list<counted>>(10, [&](std::list<counted> &l, counted_buffer &buffer) {
         EXPECT_NO_THROW([&] {
             while (!l.empty()) {
                 l.pop_front();
@@ -313,7 +313,7 @@ TEST(correctness, pop_front) {
 }
 
 TEST(correctness, pop_back) {
-    test<std::list<counted>>(10, [&] (std::list<counted>& l, counted_buffer& buffer) {
+    test<std::list<counted>>(10, [&](std::list<counted> &l, counted_buffer &buffer) {
         EXPECT_NO_THROW([&] {
             while (!l.empty()) {
                 l.pop_back();
@@ -328,7 +328,7 @@ TEST(correctness, pop_back) {
 }
 
 TEST(correctness, resize) {
-    test<std::list<counted>>(100, [&] (std::list<counted>& l, counted_buffer& buffer) {
+    test<std::list<counted>>(100, [&](std::list<counted> &l, counted_buffer &buffer) {
         buffer.resize(buffer.size() / 2);
 
         auto it = l.begin();
@@ -352,12 +352,20 @@ TEST(th_correctness, copy_construction) {
 
 TEST(th_correctness, copy_assignment) {
     auto v = genvec(100);
+    std::vector<counted> v1 = std::vector<counted>(v.begin(), v.begin() + 50);
+
     counted_th_buffer base_buffer(v.begin(), v.end());
 
     mthread(4, [&] {
-        counted_th_buffer buffer = base_buffer;
+        counted_th_buffer b1;
 
-        EXPECT_SAME(base_buffer, buffer);
+        {
+            b1 = counted_th_buffer(v1.begin(), v1.end());
+            EXPECT_SAME(b1, v1);
+        }
+
+        b1 = base_buffer;
+        EXPECT_SAME(base_buffer, b1);
     });
 }
 
@@ -373,7 +381,7 @@ TEST(th_correctness, multiple_threads_push_back) {
 
     EXPECT_EQ(400, buffer.size().first);
 
-#if 1
+#if 0
     trace(std::cout, buffer);
 #endif
 }
