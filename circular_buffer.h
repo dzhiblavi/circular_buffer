@@ -168,23 +168,17 @@ public:
      *  then it effectively returns front() and performs pop_front()
      *
      * @param value -- value to be stored in
-     * @throws any exception caused by move-assignment of T
-     * @guarantee basic
+     * @throws any exception caused by copy-assignment of T
+     * @guarantee strong
      * */
-    void wait_pop(T &value) noexcept(std::is_nothrow_move_assignable_v<T>) {
-        std::lock_guard<std::mutex> lg(m_);
+    void wait_pop(T &value) {
+        auto ulock = lock();
 
-        cv_.wait(lg, [this] {
+        cv_.wait(ulock, [this] {
             return !base()->empty();
         });
 
-        try {
-            value = std::move(base()->front());
-        } catch (...) {
-            base()->pop_front();
-            throw;
-        }
-
+        value = base()->front();
         base()->pop_front();
     }
 
@@ -195,24 +189,17 @@ public:
      *  then it effectively returns front() and performs pop_front()
      *
      * @return shared pointer to the front element
-     * @throws any exception caused by move-construction of T
-     * @guarantee basic
+     * @throws any exception caused by copy-construction of T
+     * @guarantee strong
      * */
-    std::shared_ptr<T> wait_pop() noexcept(std::is_nothrow_move_constructible_v<T>) {
-        std::lock_guard<std::mutex> lg(m_);
+    std::shared_ptr<T> wait_pop() {
+        auto ulock = lock();
 
-        cv_.wait(lg, [this] {
+        cv_.wait(ulock, [this] {
             return !base()->empty();
         });
 
-        std::shared_ptr<T> ret;
-        try {
-            ret = std::make_shared<T>(std::move(base()->front()));
-        } catch (...) {
-            base()->pop_front();
-            throw;
-        }
-
+        std::shared_ptr<T> ret = std::make_shared<T>(base()->front());
         base()->pop_front();
 
         return ret;
@@ -226,23 +213,17 @@ public:
      * If the buffer is empty, nothing is done
      *
      * @param value -- value to be stored in
-     * @throws any exception caused by move-assignment of T
-     * @guarantee basic
+     * @throws any exception caused by copy-assignment of T
+     * @guarantee strong
      * */
-    bool try_pop(T &value) noexcept(std::is_nothrow_move_assignable_v<T>) {
+    bool try_pop(T &value) {
         std::lock_guard<std::mutex> lg(m_);
 
         if (base()->empty()) {
             return false;
         }
 
-        try {
-            value = std::move(base()->front());
-        } catch (...) {
-            base()->pop_front();
-            throw;
-        }
-
+        value = base()->front();
         base()->pop_front();
 
         return true;
@@ -256,17 +237,17 @@ public:
      * If the buffer is empty, nothing is done
      *
      * @return shared pointer to the front element
-     * @throws any exception caused by move-construction of T
-     * @guarantee basic
+     * @throws any exception caused by copy-construction of T
+     * @guarantee strong
      * */
-    std::shared_ptr<T> try_pop() noexcept(std::is_nothrow_move_constructible_v<T>) {
+    std::shared_ptr<T> try_pop() {
         std::lock_guard<std::mutex> lg(m_);
 
         if (base()->empty()) {
             return {};
         }
 
-        std::shared_ptr ret = std::make_shared<T>(std::move(base()->front()));
+        std::shared_ptr ret = std::make_shared<T>(base()->front());
         base()->pop_front();
 
         return ret;
@@ -279,28 +260,23 @@ public:
      * This method blocks thread execution until the buffer becomes non-empty
      *
      * @return iterator to the element after the last element read
-     * @throws any exception caused by move-assignment of T
+     * @throws any exception caused by copy-assignment of T
      * @guarantee basic
      * */
-    template<typename OutputIt, typename = std::enable_if_t<is_output_iterator_v<OutputIt>>>
-    OutputIt wait_npop(OutputIt first, size_t count) {
-        std::lock_guard<std::mutex> lg(m_);
+    template<typename It>
+    It wait_npop(It first, size_t count) {
+        auto ulock = lock();
         size_t read = 0;
 
-        cv_.wait(lg, [this] {
+        cv_.wait(ulock, [this] {
             return !base()->empty();
         });
 
         while (read < count && !base()->empty()) {
-            try {
-                first = std::move(base()->front());
-            } catch (...) {
-                base()->pop_front();
-                throw;
-            }
-
+            *first = base()->front();
             base()->pop_front();
             ++first;
+            ++read;
         }
 
         return first;
@@ -314,9 +290,8 @@ public:
      * Where the lock is used to guarantee correct information
      * */
     std::pair<size_t, std::unique_lock<std::mutex>> size() const noexcept {
-        std::unique_lock<std::mutex> lg(m_);
-
-        return {base()->size(), std::move(lg)};
+        auto ulock = lock();
+        return {base()->size(), std::move(ulock)};
     }
 
     /*
@@ -327,9 +302,8 @@ public:
      * Where the lock is used to guarantee correct information
      * */
     std::pair<size_t, std::unique_lock<std::mutex>> capacity() const noexcept {
-        std::unique_lock<std::mutex> lg(m_);
-
-        return {base()->capacity(), std::move(lg)};
+        auto ulock = lock();
+        return {base()->capacity(), std::move(ulock)};
     }
 
     /*
@@ -340,9 +314,8 @@ public:
      * Where the lock is used to guarantee correct information
      * */
     std::pair<bool, std::unique_lock<std::mutex>> empty() const noexcept {
-        std::unique_lock<std::mutex> lg(m_);
-
-        return {base()->empty(), std::move(lg)};
+        auto ulock = lock();
+        return {base()->empty(), std::move(ulock)};
     }
 
     allocator_type get_allocator() const noexcept {
@@ -375,7 +348,7 @@ public:
      *         }
      *     }
      * */
-    std::unique_lock<std::mutex> lock() noexcept {
+    std::unique_lock<std::mutex> lock() const noexcept {
         return std::unique_lock<std::mutex>(m_);
     }
 

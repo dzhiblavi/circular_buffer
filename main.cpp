@@ -13,6 +13,12 @@
 typedef basic_circular_buffer<counted> counted_buffer;
 typedef circular_buffer<counted> counted_th_buffer;
 
+std::mutex cerr_mutex;
+
+std::unique_lock<std::mutex> lock_cerr() {
+    return std::unique_lock<std::mutex>(cerr_mutex);
+}
+
 template<typename T>
 T gen(size_t size) {
     T ret;
@@ -41,7 +47,7 @@ void trace(std::ostream &os, U const &u, Us &&... us) {
         os << ", ";
     }
     os << "}" << std::endl;
-    trace(os, us...);
+    trace(os, std::forward<Us>(us)...);
 }
 
 template<typename U, typename... Us>
@@ -52,7 +58,13 @@ void itrace(std::ostream &os, U const &u, Us &&... us) {
         os << ", ";
     }
     os << "}" << std::endl;
-    itrace(os, us...);
+    itrace(os, std::forward<Us>(us)...);
+}
+
+template <typename U>
+void sync_trace(U const& u) {
+    auto ulock = lock_cerr();
+    std::cerr << u << std::endl;
 }
 
 template<typename U, typename V>
@@ -386,14 +398,60 @@ TEST(th_correctness, multiple_threads_push_back) {
 #endif
 }
 
-TEST(th_correctness, try_pop) {
+std::thread producer(counted_th_buffer& buffer, size_t count) {
+    return std::thread([&buffer, count] {
+        for (size_t i = 0; i < count; ++i) {
+            buffer.push_back(i);
+        }
+    });
+}
 
+template <typename F>
+std::thread consumer(counted_th_buffer& buffer, F&& consume, size_t count) {
+    return std::thread([&buffer, consume, count] {
+        for (size_t i = 0; i < count; ++i) {
+#if 0
+            sync_trace(*consume(buffer));
+#else
+            consume(buffer);
+#endif
+        }
+    });
+}
+
+template <typename F>
+void consume_test(F&& consume, size_t consume_by_th) {
+    std::vector<std::thread> ts;
+    counted_th_buffer buffer(1000);
+
+    for (size_t i = 0; i < 10; ++i) {
+        ts.emplace_back(producer(buffer, 100));
+    }
+
+    for (size_t i = 0; i < 10; ++i) {
+        ts.emplace_back(consumer(buffer, std::forward<F>(consume), consume_by_th));
+    }
+
+    for (auto& t : ts) {
+        t.join();
+    }
+
+#if 0
+    trace(std::cout, buffer);
+#endif
 }
 
 TEST(th_correctness, wait_pop) {
-
+    consume_test([] (counted_th_buffer& buffer) { return buffer.wait_pop(); }, 100);
 }
 
-TEST(th_correctness, npop) {
+TEST(th_correctness, try_pop) {
+    consume_test([] (counted_th_buffer& buffer) { return buffer.try_pop(); }, 100);
+}
 
+TEST(th_correctness, wait_npop) {
+    consume_test([] (counted_th_buffer& buffer) {
+        auto v = genvec(100);
+        return buffer.wait_npop(v.begin(), 100);
+    }, 1);
 }

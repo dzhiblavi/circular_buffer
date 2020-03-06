@@ -742,7 +742,7 @@ public:
     }
 
     [[nodiscard]] bool empty() const noexcept {
-        return write_index_ == 0;
+        return size() == 0;
     }
 };
 
