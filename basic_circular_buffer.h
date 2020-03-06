@@ -383,7 +383,7 @@ public:
      * After this, 'size == 0
      *             'capacity = initial_capacity
      *
-     * @throw std::bad_alloc
+     * @throws std::bad_alloc
      * */
     basic_circular_buffer(size_t initial_capacity)
         : storage_(allocate_(initial_capacity).release()) {
@@ -396,8 +396,8 @@ public:
      *
      * After this, 'size = 'capacity = std::distance(first, last)
      *
-     * @throw std::bad_alloc
-     * @throw any exception caused by copy-construction of T
+     * @throws std::bad_alloc
+     * @throws any exception caused by copy-construction of T
      * */
     template <typename ForwardIt
             , typename = std::enable_if_t<is_forward_iterator_v<ForwardIt>>>
@@ -414,8 +414,8 @@ public:
      * After this, 'capacity = initial_capacity
      *             'size = min('capacity, std::distance(first, last))
      *
-     * @throw std::bad_alloc
-     * @throw any exception caused by copy-construction of T
+     * @throws std::bad_alloc
+     * @throws any exception caused by copy-construction of T
      * */
     template <typename It
             , typename = std::enable_if_t<is_input_iterator_v<It>>>
@@ -441,8 +441,8 @@ public:
      *             in both buffers respectively
      *
      * @param buffer to be copied
-     * @throw std::bad_alloc
-     * @throw any exception caused by copy-construction of T
+     * @throws std::bad_alloc
+     * @throws any exception caused by copy-construction of T
      * */
     basic_circular_buffer(basic_circular_buffer const& other) {
         pointer_hold_ new_storage = allocate_(other.capacity());
@@ -474,8 +474,8 @@ public:
      *             in both buffers respectively
      *
      * @param buffer to be copied
-     * @throw std::bad_alloc
-     * @throw any exception caused by copy-construction of T
+     * @throws std::bad_alloc
+     * @throws any exception caused by copy-construction of T
      * @guarantee strong, if capacity() < other.size()
      *            basic, otherwise
      * */
@@ -526,7 +526,7 @@ public:
      *
      * This method does not overwrite existing data
      *
-     * @throw any exception caused by copy-construction of T
+     * @throws any exception caused by copy-construction of T
      * @guarantee strong
      * */
     template <typename It
@@ -542,7 +542,7 @@ public:
      * This method can overwrite data
      *
      * @return if existing element was overwritten or not
-     * @throw any exception caused by copy-construction or destruction of T
+     * @throws any exception caused by copy-construction or destruction of T
      * @guarantee basic if size() == capacity()
      *            strong otherwise
      * */
@@ -557,7 +557,7 @@ public:
      * This method can overwrite data
      *
      * @return if existing element was overwritten or not
-     * @throw any exception caused by move-construction or destruction of T
+     * @throws any exception caused by move-construction or destruction of T
      * @guarantee basic if size() == capacity()
      *            strong otherwise
      * */
@@ -572,7 +572,7 @@ public:
      * This method can overwrite data
      *
      * @return if existing element was overwritten or not
-     * @throw any exception caused by construction or desctruction of T
+     * @throws any exception caused by construction or desctruction of T
      * @guarantee basic if size() == capacity()
      *            strong otherwise
      * */
@@ -619,8 +619,8 @@ public:
      *
      * After this, 'capacity() = capacity
      *
-     * @throw std::bad_alloc
-     * @throw any exception caused by copy-construction of T
+     * @throws std::bad_alloc
+     * @throws any exception caused by copy-construction of T
      * @guarantee strong
      * */
     void resize(size_t capacity) {

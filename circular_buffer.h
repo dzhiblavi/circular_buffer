@@ -168,7 +168,7 @@ public:
      *  then it effectively returns front() and performs pop_front()
      *
      * @param value -- value to be stored in
-     * @throw any exception caused by move-assignment of T
+     * @throws any exception caused by move-assignment of T
      * @guarantee basic
      * */
     void wait_pop(T &value) noexcept(std::is_nothrow_move_assignable_v<T>) {
@@ -195,7 +195,7 @@ public:
      *  then it effectively returns front() and performs pop_front()
      *
      * @return shared pointer to the front element
-     * @throw any exception caused by move-construction of T
+     * @throws any exception caused by move-construction of T
      * @guarantee basic
      * */
     std::shared_ptr<T> wait_pop() noexcept(std::is_nothrow_move_constructible_v<T>) {
@@ -226,7 +226,7 @@ public:
      * If the buffer is empty, nothing is done
      *
      * @param value -- value to be stored in
-     * @throw any exception caused by move-assignment of T
+     * @throws any exception caused by move-assignment of T
      * @guarantee basic
      * */
     bool try_pop(T &value) noexcept(std::is_nothrow_move_assignable_v<T>) {
@@ -256,7 +256,7 @@ public:
      * If the buffer is empty, nothing is done
      *
      * @return shared pointer to the front element
-     * @throw any exception caused by move-construction of T
+     * @throws any exception caused by move-construction of T
      * @guarantee basic
      * */
     std::shared_ptr<T> try_pop() noexcept(std::is_nothrow_move_constructible_v<T>) {
@@ -273,17 +273,17 @@ public:
     }
 
     /*
-     * This method gets not more than @param 'count first elements,
+     * This method gets not more than @param 'count and not less than one first elements,
      *   puts them into @param [first...) range and removes them from the buffer
      *
      * This method blocks thread execution until the buffer becomes non-empty
      *
      * @return iterator to the element after the last element read
-     * @throw any exception caused by move-assignment of T
+     * @throws any exception caused by move-assignment of T
      * @guarantee basic
      * */
     template<typename OutputIt, typename = std::enable_if_t<is_output_iterator_v<OutputIt>>>
-    OutputIt npop(OutputIt first, size_t count) {
+    OutputIt wait_npop(OutputIt first, size_t count) {
         std::lock_guard<std::mutex> lg(m_);
         size_t read = 0;
 

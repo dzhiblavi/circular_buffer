@@ -385,3 +385,15 @@ TEST(th_correctness, multiple_threads_push_back) {
     trace(std::cout, buffer);
 #endif
 }
+
+TEST(th_correctness, try_pop) {
+
+}
+
+TEST(th_correctness, wait_pop) {
+
+}
+
+TEST(th_correctness, npop) {
+
+}
