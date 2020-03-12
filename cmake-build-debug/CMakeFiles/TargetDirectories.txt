@@ -1,0 +1,3 @@
+/home/dzhiblavi/Documents/prog/cpp/code/circular_buffer/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/dzhiblavi/Documents/prog/cpp/code/circular_buffer/cmake-build-debug/CMakeFiles/circular_buffer.dir
+/home/dzhiblavi/Documents/prog/cpp/code/circular_buffer/cmake-build-debug/CMakeFiles/edit_cache.dir

@@ -288,14 +288,7 @@ TEST(correctness, const_iterators) {
 }
 
 TEST(correctness, reverse_iterators) {
-    auto v = genvec(100);
-    counted_buffer buffer(v.begin(), v.end());
-
-    faulty_run([&] {
-        EXPECT_NO_THROW([&] {
-            EXPECT_TRUE(std::equal(v.rbegin(), v.rend(), buffer.rbegin(), buffer.rend()));
-        }());
-    });
+    auto v = genvec(100);counted_buffer buffer(v.begin(), v.end());faulty_run([&] { EXPECT_NO_THROW([&] { EXPECT_TRUE(std::equal(v.rbegin(), v.rend(), buffer.rbegin(), buffer.rend())); }()); });
 }
 
 TEST(correctness, const_reverse_iterators) {

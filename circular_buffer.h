@@ -3,6 +3,9 @@
 
 #include "basic_circular_buffer.h"
 
+#include <mutex>
+#include <condition_variable>
+
 /*
  * Threadsafe basic_circular_buffer
  * */
