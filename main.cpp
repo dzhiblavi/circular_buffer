@@ -5,10 +5,10 @@
 
 #include "gtest/gtest.h"
 
-#include "basic_circular_buffer.h"
-#include "circular_buffer.h"
-#include "counted.h"
-#include "fault_injection.h"
+#include "src/basic_circular_buffer.h"
+#include "src/circular_buffer.h"
+#include "test/counted.h"
+#include "test/fault_injection.h"
 
 typedef basic_circular_buffer<counted> counted_buffer;
 typedef circular_buffer<counted> counted_th_buffer;

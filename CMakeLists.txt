@@ -3,17 +3,28 @@ project(circular_buffer)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(circular_buffer main.cpp
-        basic_circular_buffer.h
-        circular_buffer.h
-        compressed_pair.h
-        utility.h
-        fault_injection.cpp
-        fault_injection.h
-        counted.cpp
-        counted.h
+set(BUFF_SRC
+        src/basic_circular_buffer.h
+        src/circular_buffer.h
+        src/compressed_pair.h
+        src/utility.h)
+
+set(TEST_SRC
+        test/fault_injection.cpp
+        test/fault_injection.h
+        test/counted.cpp
+        test/counted.h)
+
+set(GTEST_SRC
         gtest/gtest-all.cc
         gtest/gtest_main.cc
         gtest/gtest.h)
 
+add_executable(buffer_test main.cpp
+        ${BUFF_SRC}
+        ${TEST_SRC}
+        ${GTEST_SRC})
+
+if (UNIX AND NOT APPLE)
 target_link_libraries(circular_buffer pthread)
+endif(UNIX AND NOT APPLE)

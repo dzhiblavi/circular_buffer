@@ -1,5 +1,5 @@
 #include "counted.h"
-#include "gtest/gtest.h"
+#include "../gtest/gtest.h"
 
 #include "fault_injection.h"
 
